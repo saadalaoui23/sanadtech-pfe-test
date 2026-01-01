@@ -12,18 +12,18 @@ const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
 // Rate limiting to protect API
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 1000, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-});
+//const limiter = rateLimit({
+  //windowMs: 1 * 60 * 1000, // 1 minute
+  //max: 1000, // Limit each IP to 100 requests per windowMs
+  //message: 'Too many requests from this IP, please try again later.',
+//});
 
 // Middleware
 app.use(compression()); // Enable gzip compression
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/api/', limiter); // Apply rate limiting to API routes
+//app.use('/api/', limiter); // Apply rate limiting to API routes
 
 // Routes
 app.use('/api/users', userRoutes);

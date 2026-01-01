@@ -99,8 +99,8 @@ const UserList: React.FC<UserListProps> = ({
       {/* Virtual List avec AutoSizer */}
       <div className="flex-1 min-h-0"> {/* flex-1 est CRITIQUE ici */}
        <AutoSizer>
-  {({ height, width }: { height: number; width: number }) => (
-    <List
+        {({ height, width }: { height: number; width: number }) => (
+          <List
       height={height}
       width={width}
       itemCount={hasMore ? users.length + 1 : users.length}
