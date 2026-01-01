@@ -1,7 +1,6 @@
 import React from 'react';
 import AlphabetMenu from '../Navigation/AlphabetMenu';
-import { AlphabetStats } from '../../types';
-import './Sidebar.css';
+import type { AlphabetStats } from '../../types';
 
 interface SidebarProps {
   onLetterClick: (letter: string) => void;
@@ -12,7 +11,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onLetterClick, activeLetter, stats, loading }) => {
   return (
-    <aside className="sidebar">
+    <aside className="lg:w-80 flex-shrink-0">
       <AlphabetMenu
         onLetterClick={onLetterClick}
         activeLetter={activeLetter}

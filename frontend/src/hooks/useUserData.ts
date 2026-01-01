@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { User, PaginatedUsersResponse } from '../types';
+import type { User, PaginatedUsersResponse } from '../types';
 import { fetchPaginatedUsers } from '../services/api';
 
 interface UseUserDataOptions {

@@ -1,12 +1,49 @@
 import React from 'react';
-import './Header.css';
 
 const Header: React.FC = () => {
   return (
-    <header className="header">
-      <div className="header-content">
-        <h1 className="header-title">User Directory</h1>
-        <p className="header-subtitle">Browse through millions of users efficiently</p>
+    <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-xl">
+      <div className="max-w-7xl mx-auto px-6 py-12 sm:py-16">
+        <div className="flex items-center space-x-4 mb-4">
+          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+            <svg
+              className="w-7 h-7 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2">
+              User Directory
+            </h1>
+            <p className="text-indigo-100 text-lg sm:text-xl">
+              Browse through millions of users efficiently
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Badge */}
+        <div className="mt-6 inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          <span className="text-white font-semibold text-sm">10M+ Users</span>
+          <span className="text-indigo-200 text-xs">•</span>
+          <span className="text-indigo-100 text-sm">Lightning Fast</span>
+        </div>
       </div>
     </header>
   );

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AlphabetStats } from '../types';
+import type { AlphabetStats } from '../types';
 import { fetchAlphabetStats } from '../services/api';
 
 /**

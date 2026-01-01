@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { User } from '../types';
+import type { User } from '../types';
 import { searchUsers } from '../services/api';
 import { debounce } from '../utils/helpers';
 
