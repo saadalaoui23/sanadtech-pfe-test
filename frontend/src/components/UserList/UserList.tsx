@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import type { User } from '../../types'; 
 import UserItem from './UserItem';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 
 interface UserListProps {
   users: User[];
@@ -71,10 +72,12 @@ const UserList: React.FC<UserListProps> = ({
     );
   }
 
+ // ... (votre code existant jusqu'au return)
+
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 flex-none">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-gray-700">
             Showing <span className="text-indigo-600">{users.length.toLocaleString()}</span>
@@ -93,26 +96,22 @@ const UserList: React.FC<UserListProps> = ({
         </div>
       </div>
 
-      {/* Virtual List */}
-      <div className="relative">
-        <List
-          height={CONTAINER_HEIGHT}
-          itemCount={hasMore ? users.length + 1 : users.length}
-          itemSize={ITEM_HEIGHT}
-          width="100%"
-          overscanCount={5}
-        >
-          {Row}
-        </List>
+      {/* Virtual List avec AutoSizer */}
+      <div className="flex-1 min-h-0"> {/* flex-1 est CRITIQUE ici */}
+       <AutoSizer>
+  {({ height, width }: { height: number; width: number }) => (
+    <List
+      height={height}
+      width={width}
+      itemCount={hasMore ? users.length + 1 : users.length}
+      itemSize={ITEM_HEIGHT}
+      overscanCount={5}
+    >
+      {Row}
+    </List>
+  )}
+</AutoSizer>
       </div>
-
-      {/* Loading Indicator */}
-      {loading && (
-        <div className="flex items-center justify-center gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-          <div className="w-5 h-5 border-[3px] border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
-          <span className="text-sm font-medium text-gray-600">Loading more users...</span>
-        </div>
-      )}
     </div>
   );
 };

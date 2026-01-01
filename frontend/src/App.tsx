@@ -6,6 +6,7 @@ import SearchBar from './components/Navigation/SearchBar';
 import { useUserData } from './hooks/useUserData';
 import { useAlphabetNavigation } from './hooks/useAlphabetNavigation';
 import { useSearch } from './hooks/useSearch';
+import './index.css';
 
 const App: React.FC = () => {
   const { activeLetter, stats, loading: statsLoading, handleLetterClick, clearLetter } =
