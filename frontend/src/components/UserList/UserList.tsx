@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { FixedSizeList as List } from 'react-window';
-import { User } from '../types';
+import type { User } from '../../types'; 
 import UserItem from './UserItem';
 
 interface UserListProps {
@@ -100,7 +100,6 @@ const UserList: React.FC<UserListProps> = ({
           itemCount={hasMore ? users.length + 1 : users.length}
           itemSize={ITEM_HEIGHT}
           width="100%"
-          estimatedItemSize={ITEM_HEIGHT}
           overscanCount={5}
         >
           {Row}

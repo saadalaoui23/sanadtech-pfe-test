@@ -67,7 +67,8 @@ export const saveIndex = async (letter: string, indexData: AlphabetIndex): Promi
     const indexFile = path.join(INDEXES_DIR, `${letter.toUpperCase()}.json`);
     await fs.writeFile(indexFile, JSON.stringify(indexData, null, 2));
   } catch (error) {
-    throw new Error(`Failed to save index: ${error.message}`);
+    // Correction ici : Cast de error en Error pour accéder à .message
+    throw new Error(`Failed to save index: ${(error as Error).message}`);
   }
 };
 
@@ -80,6 +81,7 @@ export const saveStats = async (stats: FullStats): Promise<void> => {
     const statsFile = path.join(INDEXES_DIR, 'stats.json');
     await fs.writeFile(statsFile, JSON.stringify(stats, null, 2));
   } catch (error) {
-    throw new Error(`Failed to save stats: ${error.message}`);
+    // Correction ici : Cast de error en Error pour accéder à .message
+    throw new Error(`Failed to save stats: ${(error as Error).message}`);
   }
 };

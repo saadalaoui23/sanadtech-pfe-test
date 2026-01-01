@@ -15,8 +15,4 @@ export default {
     },
   },
   plugins: [],
-  // Ensure Tailwind v4 compatibility
-  corePlugins: {
-    preflight: true,
-  },
 }
