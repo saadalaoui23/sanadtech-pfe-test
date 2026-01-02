@@ -13,7 +13,7 @@ export const getPaginatedUsers = async (
 ): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500); // Max 500 per page
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
     const letter = req.query.letter as string | undefined;
     const search = req.query.search as string | undefined;
 
@@ -48,7 +48,7 @@ export const getAlphabetStats = async (
 
 /**
  * GET /api/users/search
- * Searches for users matching a query string
+ * Searches for users matching a query string with pagination
  */
 export const searchUsers = async (
   req: Request,
@@ -57,14 +57,16 @@ export const searchUsers = async (
 ): Promise<void> => {
   try {
     const query = req.query.q as string;
-    const maxResults = Math.min(parseInt(req.query.maxResults as string) || 100, 500);
+    const page = parseInt(req.query.page as string) || 1; // Ajout de la page
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500); // Ajout de la limite
 
     if (!query || query.trim().length === 0) {
       res.status(400).json({ error: 'Query parameter "q" is required' });
       return;
     }
 
-    const result = await userService.searchUsers(query, maxResults);
+    // On passe page et limit au service
+    const result = await userService.searchUsers(query, limit, page);
     res.json(result);
   } catch (error) {
     next(error);

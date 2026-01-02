@@ -4,6 +4,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  avatar?: string; // Ajouté par sécurité si vous avez des images
 }
 
 export interface PaginatedUsersResponse {
@@ -22,6 +23,13 @@ export interface AlphabetStats {
 
 export interface SearchResponse {
   users: User[];
-  positions: number[];
   total: number;
+  // --- NOUVEAUX CHAMPS REQUIS POUR LE SCROLL INFINI ---
+  hasMore: boolean; 
+  page: number;
+  // ----------------------------------------------------
+  positions?: number[]; // Devenu optionnel
 }
+
+// Type union pour le hook useUserData
+export type APIResponse = PaginatedUsersResponse | SearchResponse;

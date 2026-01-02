@@ -13,24 +13,22 @@ const apiClient = axios.create({
  */
 export const fetchPaginatedUsers = async (
   page: number = 1,
-  limit: number = 100,
+  limit: number = 50,
   letter?: string,
   search?: string
 ): Promise<PaginatedUsersResponse> => {
-  const params = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-  });
+  // Construction propre des paramètres
+  const params: Record<string, string | number> = {
+    page,
+    limit,
+  };
 
-  if (letter) {
-    params.append('letter', letter);
-  }
+  if (letter) params.letter = letter;
+  // Note: search n'est généralement pas envoyé ici si searchUsers existe, 
+  // mais on le laisse si votre backend le supporte via getPaginatedUsers
+  if (search) params.search = search; 
 
-  if (search) {
-    params.append('search', search);
-  }
-
-  const response = await apiClient.get<PaginatedUsersResponse>(`/users/paginated?${params.toString()}`);
+  const response = await apiClient.get<PaginatedUsersResponse>('/users/paginated', { params });
   return response.data;
 };
 
@@ -43,28 +41,33 @@ export const fetchAlphabetStats = async (): Promise<AlphabetStats> => {
 };
 
 /**
- * Searches for users matching a query
+ * Searches for users matching a query with pagination
  */
-export const searchUsers = async (query: string, maxResults: number = 100): Promise<SearchResponse> => {
-  const params = new URLSearchParams({
+export const searchUsers = async (
+  query: string, 
+  limit: number = 50, 
+  page: number = 1 // Ajout paramètre page
+): Promise<SearchResponse> => {
+  const params = {
     q: query,
-    maxResults: maxResults.toString(),
-  });
+    limit: limit.toString(),
+    page: page.toString(), // On envoie la page au backend
+  };
 
-  const response = await apiClient.get<SearchResponse>(`/users/search?${params.toString()}`);
+  const response = await apiClient.get<SearchResponse>('/users/search', { params });
   return response.data;
 };
 
 /**
  * Jumps to a specific letter in the user list
  */
-export const jumpToLetter = async (letter: string, limit: number = 100): Promise<PaginatedUsersResponse> => {
-  const params = new URLSearchParams({
+export const jumpToLetter = async (letter: string, limit: number = 50): Promise<PaginatedUsersResponse> => {
+  const params = {
     limit: limit.toString(),
-  });
+  };
 
   const response = await apiClient.get<PaginatedUsersResponse>(
-    `/users/jump-to-letter/${letter}?${params.toString()}`
+    `/users/jump-to-letter/${letter}`, { params }
   );
   return response.data;
 };

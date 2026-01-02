@@ -1,8 +1,13 @@
 import React, { useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { FixedSizeList as List, areEqual } from 'react-window';
+import {AutoSizer} from 'react-virtualized-auto-sizer';
 import type { User } from '../../types'; 
 import UserItem from './UserItem';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+// --- HACK TYPESCRIPT POUR AUTOSIZER ---
+// On force le type pour éviter l'erreur "no default export" et "IntrinsicAttributes"
+const AutoSizerAny = AutoSizer as any;
+// --------------------------------------
 
 interface UserListProps {
   users: User[];
@@ -12,13 +17,42 @@ interface UserListProps {
   total?: number;
 }
 
-const ITEM_HEIGHT = 60;
-const CONTAINER_HEIGHT = 600;
+const ITEM_HEIGHT = 70;
 
-/**
- * Virtual scrolling list component using react-window
- * Only renders visible items to maintain performance with millions of items
- */
+// Interface pour les données passées à la ligne
+interface ItemData {
+  users: User[];
+  hasMore: boolean;
+  loading: boolean;
+  onLoadMore: () => void;
+}
+
+// 1. Composant Row sorti pour la performance (évite le re-render infini)
+const Row = React.memo(({ index, style, data }: { index: number; style: React.CSSProperties; data: ItemData }) => {
+  const { users, hasMore, loading, onLoadMore } = data;
+
+  // Détection de la fin de liste pour le chargement infini
+  if (hasMore && !loading && index === users.length - 1) {
+    // Le setTimeout est CRITIQUE pour éviter l'erreur "Cannot update component while rendering"
+    setTimeout(() => onLoadMore(), 0);
+  }
+
+  // Loader en bas de liste
+  if (index >= users.length) {
+    return (
+      <div style={style} className="flex items-center justify-center p-4 border-b border-gray-100">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={style}>
+      <UserItem user={users[index]} />
+    </div>
+  );
+}, areEqual);
+
 const UserList: React.FC<UserListProps> = ({
   users,
   onLoadMore,
@@ -26,91 +60,58 @@ const UserList: React.FC<UserListProps> = ({
   loading,
   total = 0,
 }) => {
-  // Calculate estimated total item count for better scrollbar
-  const estimatedItemCount = useMemo(() => {
-    if (users.length > 0 && hasMore) {
-      // Estimate based on current data and total if available
-      return total > 0 ? total : users.length * 10;
-    }
-    return users.length;
-  }, [users.length, hasMore, total]);
+  
+  // Mémorisation des données pour react-window
+  const itemData = useMemo(() => ({
+    users,
+    hasMore,
+    loading,
+    onLoadMore
+  }), [users, hasMore, loading, onLoadMore]);
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    // Load more when approaching the end
-    if (index >= users.length - 5 && hasMore && !loading) {
-      onLoadMore();
-    }
-
-    if (index >= users.length) {
-      return (
-        <div style={style} className="flex items-center justify-center p-5 border-b border-gray-100">
-          <div className="text-gray-500 text-sm font-medium">Loading more users...</div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={style}>
-        <UserItem user={users[index]} />
-      </div>
-    );
-  };
+  const itemCount = hasMore ? users.length + 1 : users.length;
 
   if (users.length === 0 && !loading) {
     return (
-      <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          </div>
-          <p className="text-gray-500 text-lg font-medium">No users found</p>
-          <p className="text-gray-400 text-sm">Try adjusting your search or filter criteria</p>
-        </div>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-white p-12 text-center text-gray-500">
+        <p className="text-lg font-medium">No users found</p>
       </div>
     );
   }
 
- // ... (votre code existant jusqu'au return)
-
   return (
     <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 flex-none">
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex-none">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-gray-700">
             Showing <span className="text-indigo-600">{users.length.toLocaleString()}</span>
-            {total > 0 && (
-              <>
-                {' '}of <span className="text-indigo-600">{total.toLocaleString()}</span>
-              </>
-            )}{' '}
-            users
+            {total > 0 && <> of <span className="text-indigo-600">{total.toLocaleString()}</span></>} users
           </span>
           {hasMore && (
-            <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border border-gray-200">
-              More available
+            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full border border-indigo-100">
+              Loading...
             </span>
           )}
         </div>
       </div>
 
-      {/* Virtual List avec AutoSizer */}
-      <div className="flex-1 min-h-0"> {/* flex-1 est CRITIQUE ici */}
-       <AutoSizer>
-        {({ height, width }: { height: number; width: number }) => (
-          <List
-      height={height}
-      width={width}
-      itemCount={hasMore ? users.length + 1 : users.length}
-      itemSize={ITEM_HEIGHT}
-      overscanCount={5}
-    >
-      {Row}
-    </List>
-  )}
-</AutoSizer>
+      {/* Liste Virtuelle */}
+      <div className="flex-1 min-h-0">
+        <AutoSizerAny>
+          {({ height, width }: any) => (
+            <List
+              height={height}
+              width={width}
+              itemCount={itemCount}
+              itemSize={ITEM_HEIGHT}
+              itemData={itemData}
+              overscanCount={5}
+            >
+              {Row}
+            </List>
+          )}
+        </AutoSizerAny>
       </div>
     </div>
   );

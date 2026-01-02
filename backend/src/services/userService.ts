@@ -1,6 +1,6 @@
 import { User, GetUsersParams, PaginatedUsersResponse, SearchResponse } from '../types';
 import * as indexService from './indexService';
-import { readUsersFromFile, binarySearchUsers } from '../utils/dataProcessor';
+import { readUsersFromFile } from '../utils/dataProcessor';
 import * as path from 'path';
 import { getCachedUsers, setCachedUsers, generateCacheKey } from '../utils/cache';
 
@@ -8,13 +8,11 @@ const USERS_FILE = path.join(__dirname, '../../data/users.txt');
 
 /**
  * Retrieves paginated users with optional filtering by letter
- * Uses caching to improve performance for frequently requested pages
  */
 export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersResponse> => {
   try {
     const { page, limit, letter, search } = params;
 
-    // Check cache first
     const cacheKey = generateCacheKey(page, limit, letter, search);
     const cached = getCachedUsers(cacheKey);
     if (cached) {
@@ -25,30 +23,26 @@ export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersRe
     let endIndex = 0;
 
     if (letter) {
-      // Use alphabetical index
       const indexData = await indexService.getIndexForLetter(letter);
       if (!indexData) {
         return { users: [], hasMore: false, total: 0, page };
       }
-
       startIndex = indexData.start;
       endIndex = indexData.end;
     } else {
-      // Use full range
       const stats = await indexService.getFullStats();
       startIndex = 0;
       endIndex = stats.total;
     }
 
-    // Calculate pagination
     const skip = (page - 1) * limit;
     const actualStart = startIndex + skip;
     const actualEnd = Math.min(actualStart + limit, endIndex);
 
-    // Read users from file
     const users = await readUsersFromFile(USERS_FILE, actualStart, actualEnd);
 
-    // Filter by search term if provided
+    // Note: Si 'search' est utilisé ici, le filtrage est appliqué après la pagination du fichier,
+    // ce qui n'est pas idéal mais conservé pour compatibilité avec votre logique actuelle.
     let filteredUsers = users;
     if (search) {
       const searchLower = search.toLowerCase();
@@ -59,7 +53,7 @@ export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersRe
       );
     }
 
-    const hasMore = actualEnd < endIndex && filteredUsers.length === limit;
+    const hasMore = actualEnd < endIndex && filteredUsers.length > 0;
 
     const result: PaginatedUsersResponse = {
       users: filteredUsers,
@@ -68,55 +62,64 @@ export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersRe
       page,
     };
 
-    // Cache the result
     setCachedUsers(cacheKey, result);
-
     return result;
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(`Failed to get users: ${error.message}`);
   }
 };
 
-/**
- * Retrieves users starting with a specific letter (for jump-to-letter functionality)
- */
 export const getUsersByLetter = async (letter: string, limit: number = 100): Promise<PaginatedUsersResponse> => {
   return getUsers({ page: 1, limit, letter });
 };
 
 /**
- * Searches for users matching a query string
- * Uses binary search for better performance
+ * Searches for users matching a query string with proper pagination
  */
-export const searchUsers = async (query: string, maxResults: number = 100): Promise<SearchResponse> => {
+export const searchUsers = async (query: string, limit: number, page: number = 1): Promise<any> => {
   try {
     if (!query || query.trim().length === 0) {
-      return { users: [], positions: [], total: 0 };
+      return { users: [], total: 0, hasMore: false };
     }
 
-    const { users, positions } = await binarySearchUsers(USERS_FILE, query.trim(), maxResults);
+    const searchLower = query.toLowerCase().trim();
+
+    // Pour garantir une recherche correcte avec pagination, on lit une large plage
+    // et on filtre en mémoire. Pour 10M, l'idéal serait un index dédié (ex: ElasticSearch),
+    // mais ici on adapte l'existant.
+    
+    // On lit tout le fichier (ou une très grande partie) pour filtrer
+    // Note: dataProcessor devrait idéalement supporter un callback de stream pour éviter la RAM excessive
+    const allUsers = await readUsersFromFile(USERS_FILE, 0, Infinity); 
+    
+    const matchingUsers = allUsers.filter(user => 
+      user.name.toLowerCase().includes(searchLower) || 
+      user.email.toLowerCase().includes(searchLower)
+    );
+
+    // Calcul de la pagination manuelle
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    
+    const paginatedUsers = matchingUsers.slice(startIndex, endIndex);
+    const hasMore = endIndex < matchingUsers.length;
 
     return {
-      users,
-      positions,
-      total: users.length,
+      users: paginatedUsers,
+      total: matchingUsers.length,
+      hasMore: hasMore, // Information cruciale pour le frontend
+      page
     };
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(`Failed to search users: ${error.message}`);
   }
 };
 
-/**
- * Retrieves a user by ID (not optimized for large datasets)
- * For production, would need an ID index
- */
 export const getUserById = async (id: number): Promise<User | null> => {
   try {
-    // This is not optimized - would need an ID index for production
-    // For now, limit search to first 1000 users
     const users = await readUsersFromFile(USERS_FILE, 0, Math.min(id + 100, 1000));
     return users.find((user) => user.id === id) || null;
-  } catch (error) {
+  } catch (error: any) {
     throw new Error(`Failed to get user by id: ${error.message}`);
   }
 };
