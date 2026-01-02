@@ -3,14 +3,10 @@ import type { User } from '../../types';
 
 interface UserItemProps {
   user: User;
+  onClick?: (user: User) => void; // ← AJOUTEZ CETTE LIGNE
 }
 
-/**
- * Individual user item component
- * Optimized for rendering in virtual scroll
- */
-const UserItem: React.FC<UserItemProps> = ({ user }) => {
-  // Generate gradient color based on first letter
+const UserItem: React.FC<UserItemProps> = ({ user, onClick }) => { // ← AJOUTEZ onClick ICI
   const getGradientColor = (letter: string) => {
     const colors = [
       'from-indigo-500 to-purple-600',
@@ -30,9 +26,12 @@ const UserItem: React.FC<UserItemProps> = ({ user }) => {
   const gradient = getGradientColor(initial);
 
   return (
-    <div className="flex items-center px-6 py-4 border-b border-gray-100 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 cursor-pointer group">
+    <div 
+      className="flex items-center px-6 py-4 border-b border-gray-100 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 cursor-pointer group"
+      onClick={() => onClick?.(user)} // ← AJOUTEZ CETTE LIGNE
+    >
       {/* Avatar */}
-      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:shadow-lg transition-shadow duration-200 flex-shrink-0 mr-4`}>
+      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-200 flex-shrink-0 mr-4`}>
         <span>{initial}</span>
       </div>
 
@@ -47,7 +46,7 @@ const UserItem: React.FC<UserItemProps> = ({ user }) => {
       </div>
 
       {/* Arrow Icon */}
-      <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      <div className="ml-4 opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:translate-x-1"> {/* ← J'ai ajouté transform pour animer la flèche */}
         <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>

@@ -8,11 +8,17 @@
   padding: 0;
 }
 
-html, body, #root {
-  /* Indispensable pour que h-full fonctionne dans App.tsx */
-  height: 100% !important;
+html, body {
+  height: 100%;
   width: 100%;
-  overflow: hidden; /* On bloque le scroll de la page entière */
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
 }
 
 body {
@@ -20,7 +26,21 @@ body {
   background-color: #f9fafb;
 }
 
-#root {
-  display: flex;
-  flex-direction: column;
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a5b4fc;
 }

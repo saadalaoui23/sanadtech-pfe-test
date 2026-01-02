@@ -2,15 +2,18 @@ import React, { useCallback, useState } from 'react';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
 import UserList from './components/UserList/UserList';
+import UserModal from './components/UserList/UserModal';
 import SearchBar from './components/Navigation/SearchBar';
 import { useUserData } from './hooks/useUserData';
 import { useAlphabetNavigation } from './hooks/useAlphabetNavigation';
-import { useSearch } from './hooks/useSearch';
+import type { User } from './types';
 import './index.css';
 
 const App: React.FC = () => {
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { stats, loading: statsLoading } = useAlphabetNavigation();
 
@@ -18,6 +21,14 @@ const App: React.FC = () => {
     letter: searchTerm.length > 0 ? null : activeLetter,
     searchTerm: searchTerm,
     pageSize: 50,
+  });
+
+  console.log('🎯 App.tsx - État actuel:', { 
+    usersCount: users.length, 
+    loading, 
+    hasMore, 
+    total,
+    firstUser: users[0]?.name 
   });
 
   const handleSearch = useCallback((value: string) => {
@@ -35,13 +46,25 @@ const App: React.FC = () => {
     setActiveLetter(null);
   }, []);
 
-  return (
-    <div className="flex flex-col h-full w-full bg-gray-50 overflow-hidden">
-      <div className="flex-none z-20 shadow-sm">
-        <Header />
-      </div>
+  const handleUserClick = useCallback((user: User) => {
+    console.log('👤 Utilisateur cliqué:', user);
+    setSelectedUser(user);
+    setIsModalOpen(true);
+  }, []);
 
-      <div className="flex flex-1 overflow-hidden">
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedUser(null), 300); // Attendre la fin de l'animation
+  }, []);
+
+  return (
+    <div className="h-screen w-screen flex flex-col bg-gray-50 overflow-hidden">
+      {/* Header */}
+      <Header />
+
+      {/* Conteneur principal */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Sidebar */}
         <aside className="hidden lg:block w-80 flex-none bg-white border-r border-gray-200 overflow-y-auto">
           <Sidebar
             onLetterClick={handleLetterClick}
@@ -51,7 +74,9 @@ const App: React.FC = () => {
           />
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 bg-white relative h-full">
+        {/* Zone principale */}
+        <main className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
+          {/* Barre de recherche */}
           <div className="flex-none p-4 border-b border-gray-100 bg-white">
             <SearchBar value={searchTerm} onSearch={handleSearch} />
             
@@ -68,18 +93,26 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Ce conteneur "flex-1" est celui que AutoSizer va mesurer */}
-          <div className="flex-1 relative w-full h-full bg-gray-50">
+          {/* Zone de liste - Prend tout l'espace restant */}
+          <div className="flex-1 min-h-0 bg-gray-50">
             <UserList
               users={users}
               onLoadMore={loadMore}
               hasMore={hasMore}
               loading={loading}
               total={total}
+              onUserClick={handleUserClick}
             />
           </div>
         </main>
       </div>
+
+      {/* Modal de détails utilisateur */}
+      <UserModal 
+        user={selectedUser}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 };
