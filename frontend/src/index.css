@@ -1,10 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Reset de base */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* J'ai retiré 'overflow: hidden' ici car c'est dangereux pour les éléments qui doivent scroller */
 }
 
 :root {
@@ -18,17 +21,29 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* CRITIQUE 1 : Hauteur fixe à la racine */
+  height: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  /* CRITIQUE 2 : height fixe (pas min-height) */
+  height: 100%;
+  /* Empêche le scroll global de la page (on veut que seule la liste scrolle) */
+  overflow: hidden; 
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  /* CRITIQUE 3 : C'est ici que ça bloquait ! */
+  /* min-height: 100vh;  <-- CAUSE DU BUG */
+  height: 100%;       /* <-- CORRECTION */
+  
+  /* Permet à App.tsx de prendre toute la place */
+  display: flex;
+  flex-direction: column;
 }
 
 button {

@@ -4,7 +4,8 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  avatar?: string; // Ajouté par sécurité si vous avez des images
+  avatar?: string;
+  [key: string]: any; // Flexibilité pour d'autres champs éventuels
 }
 
 export interface PaginatedUsersResponse {
@@ -14,22 +15,24 @@ export interface PaginatedUsersResponse {
   page: number;
 }
 
+// ⚠️ CORRECTION ICI : 'startIndex' devient 'start' pour matcher le Backend
 export interface AlphabetStats {
   [letter: string]: {
     count: number;
-    startIndex: number;
+    start: number; // Le backend renvoie "start", pas "startIndex"
+    end?: number;  // Le backend renvoie souvent "end" aussi
   };
 }
 
 export interface SearchResponse {
   users: User[];
   total: number;
-  // --- NOUVEAUX CHAMPS REQUIS POUR LE SCROLL INFINI ---
+  // --- C'EST PARFAIT POUR LE SCROLL INFINI ---
   hasMore: boolean; 
   page: number;
-  // ----------------------------------------------------
-  positions?: number[]; // Devenu optionnel
+  // -------------------------------------------
+  positions?: number[];
 }
 
-// Type union pour le hook useUserData
+// Type union utile pour les hooks
 export type APIResponse = PaginatedUsersResponse | SearchResponse;

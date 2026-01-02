@@ -1,111 +1,81 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User } from '../types';
-import { fetchPaginatedUsers, searchUsers } from '../services/api'; // Assurez-vous d'importer searchUsers
+import { fetchPaginatedUsers, searchUsers } from '../services/api';
 
-interface UseUserDataOptions {
-  letter?: string | null;
-  searchTerm?: string;
-  pageSize?: number;
-}
-
-export const useUserData = ({
-  letter = null,
-  searchTerm = '',
-  pageSize = 50, // Recommandé 50 pour performance
-}: UseUserDataOptions = {}) => {
+export const useUserData = (options: { letter: string | null; searchTerm: string; pageSize?: number }) => {
+  const { letter, searchTerm, pageSize = 50 } = options;
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  
+  // Ref pour annuler les requêtes en cours
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Reset quand les filtres changent
-  useEffect(() => {
-    setUsers([]);
-    setPage(1);
-    setHasMore(true);
-    setLoading(false);
-    // On laisse loadMore déclencher le premier chargement ou on l'appelle ici
-    // loadMore() ne marchera pas bien ici car c'est une closure.
-    // L'idéal est d'avoir une fonction fetch dédiée ou d'utiliser un flag.
-    // Pour simplifier, on reset juste les états, et le scroll/mount fera le reste.
-  }, [letter, searchTerm]);
-
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-
-    // Cancel request previous
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+  // Fonction centrale de récupération
+  const fetchData = useCallback(async (isLoadMore: boolean) => {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
 
     setLoading(true);
-    setError(null);
-
+    
     try {
+      const targetPage = isLoadMore ? page + 1 : 1;
       let response;
-      
-      // LOGIQUE CORRECTE : CHOIX DE L'API SELON LE MODE
+
+      // Logique de choix d'API
       if (searchTerm && searchTerm.length >= 2) {
-        // Mode Recherche : On passe la page !
-        response = await searchUsers(searchTerm, pageSize, page);
+        response = await searchUsers(searchTerm, pageSize, targetPage);
       } else {
-        // Mode Navigation standard
-        response = await fetchPaginatedUsers(page, pageSize, letter || undefined);
+        response = await fetchPaginatedUsers(targetPage, pageSize, letter || undefined);
       }
 
-      const newUsers = response.users;
-
-      setUsers((prev) => {
-        // Petit hack pour éviter les doublons si React StrictMode double l'appel
-        // En prod ce n'est pas nécessaire mais ça sécurise
-        const existingIds = new Set(prev.map(u => u.id));
-        const uniqueNewUsers = newUsers.filter(u => !existingIds.has(u.id));
-        return [...prev, ...uniqueNewUsers];
-      });
+      const newUsers = response.users || [];
+      const newTotal = response.total || 0;
       
-      // Mise à jour de hasMore basée sur la réponse du backend ou la taille de la liste
-      if (response.hasMore !== undefined) {
+      if (isLoadMore) {
+        setUsers(prev => [...prev, ...newUsers]);
+        setPage(prev => prev + 1);
+      } else {
+        setUsers(newUsers);
+        setPage(1);
+        setTotal(newTotal);
+      }
+
+      // Mise à jour intelligente de hasMore
+      // Si le backend renvoie 'hasMore', on l'utilise, sinon on devine
+      if (typeof response.hasMore === 'boolean') {
         setHasMore(response.hasMore);
       } else {
-        // Fallback si le backend ne renvoie pas hasMore
         setHasMore(newUsers.length === pageSize);
       }
-      
-      if (newUsers.length > 0) {
-          setPage((prev) => prev + 1);
-      } else {
-          setHasMore(false);
-      }
-
-      if (response.total) setTotal(response.total);
 
     } catch (err: any) {
-      if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        console.error("Error loading users:", err);
-        setError(err.message || 'Failed to load users');
-        setHasMore(false); // Arrêt en cas d'erreur pour éviter boucle
+      if (err.name !== 'CanceledError') {
+        console.error("Erreur fetch:", err);
+        setHasMore(false);
       }
     } finally {
       setLoading(false);
     }
-  }, [page, letter, searchTerm, pageSize, loading, hasMore]);
+  }, [page, letter, searchTerm, pageSize]);
 
-  return {
-    users,
-    loading,
-    hasMore,
-    error,
-    total,
-    loadMore,
-    refresh: () => {
-        setPage(1);
-        setUsers([]);
-        setHasMore(true);
-        loadMore();
-    },
-  };
+  // 1. DÉCLENCHEUR INITIAL (C'est ce qui manquait pour afficher les users à la sélection)
+  useEffect(() => {
+    setUsers([]);
+    setHasMore(true);
+    setTotal(0);
+    // On appelle fetchData en mode "reset" (false)
+    fetchData(false);
+  }, [letter, searchTerm]); // Se déclenche à chaque changement de filtre
+
+  // 2. Fonction pour le scroll infini
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      fetchData(true);
+    }
+  }, [loading, hasMore, fetchData]);
+
+  return { users, loading, hasMore, total, loadMore };
 };
