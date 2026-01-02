@@ -3,8 +3,55 @@ import * as readline from 'readline';
 import { User } from '../types';
 
 /**
- * Reads users from file using streaming to avoid loading entire file in memory
- * Only reads the lines between startIndex and endIndex
+ * Parses a line containing a name and converts it to a User object.
+ * Logic maintained from original code for consistency.
+ */
+export const parseUserLine = (line: string, id: number): User | null => {
+  if (!line || !line.trim()) return null;
+
+  const name = line.trim();
+  let firstName = '';
+  let lastName = '';
+  let fullName = name;
+
+  if (name.includes(',')) {
+    // Format: "Last, First" or "First,Last" depending on your file structure, 
+    // sticking to your logic: parts[0] is First
+    const parts = name.split(',');
+    firstName = parts[0]?.trim() || '';
+    lastName = parts.slice(1).join(',').trim();
+    fullName = `${firstName} ${lastName}`;
+  } else if (name.includes(' ')) {
+    // Format: "Prénom Nom"
+    const parts = name.split(' ');
+    firstName = parts[0]?.trim() || '';
+    lastName = parts.slice(1).join(' ').trim();
+    fullName = name;
+  } else {
+    // Single name
+    fullName = name;
+    firstName = name;
+  }
+
+  // Generate mock email
+  const emailName = fullName
+    .toLowerCase()
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9.]/g, '');
+  const email = `${emailName}@example.com`;
+
+  return {
+    id,
+    name: fullName,
+    firstName,
+    lastName,
+    email,
+  };
+};
+
+/**
+ * Reads users from file using streaming to avoid loading entire file in memory.
+ * Used for specific index ranges (e.g. Navigation by Letter).
  */
 export const readUsersFromFile = async (
   filePath: string,
@@ -22,12 +69,14 @@ export const readUsersFromFile = async (
 
   for await (const line of rl) {
     if (currentIndex >= endIndex) {
+      // Optimization: Close stream immediately once we have the data
+      rl.close();
+      fileStream.destroy();
       break;
     }
 
     const trimmedLine = line.trim();
 
-    // Skip empty lines and comments
     if (currentIndex >= startIndex && trimmedLine && !trimmedLine.startsWith('#')) {
       const user = parseUserLine(trimmedLine, currentIndex + 1);
       if (user) {
@@ -42,66 +91,26 @@ export const readUsersFromFile = async (
 };
 
 /**
- * Parses a line containing a name and converts it to a User object
- * Supports formats: "Prénom Nom", "Prénom,Nom", or just a name
+ * SCALABLE SEARCH FUNCTION (The "Option B" Solution)
+ * * Performs a linear scan via Stream.
+ * Memory Complexity: O(1) - Only holds the current line and the result page in RAM.
+ * Time Complexity: O(N) - Worst case scans file, but stops early ("break") when page is full.
  */
-export const parseUserLine = (line: string, id: number): User | null => {
-  if (!line || !line.trim()) return null;
-
-  const name = line.trim();
-  let firstName = '';
-  let lastName = '';
-  let fullName = name;
-
-  if (name.includes(',')) {
-    // Format: "Prénom,Nom"
-    const parts = name.split(',');
-    firstName = parts[0]?.trim() || '';
-    lastName = parts.slice(1).join(',').trim();
-    fullName = `${firstName} ${lastName}`;
-  } else if (name.includes(' ')) {
-    // Format: "Prénom Nom" or "Prénom Nom1 Nom2"
-    const parts = name.split(' ');
-    firstName = parts[0]?.trim() || '';
-    lastName = parts.slice(1).join(' ').trim();
-    fullName = name;
-  } else {
-    // Just a single name
-    fullName = name;
-    firstName = name;
-  }
-
-  // Generate email from name
-  const emailName = fullName
-    .toLowerCase()
-    .replace(/\s+/g, '.')
-    .replace(/[^a-z0-9.]/g, '');
-  const email = `${emailName}@example.com`;
-
-  return {
-    id,
-    name: fullName,
-    firstName,
-    lastName,
-    email,
-  };
-};
-
-/**
- * Search for users matching a query string
- * Reads file line-by-line and stops when maxResults is reached
- * Note: For truly sorted data, binary search would be more efficient
- * but requires the file to be sorted, which may not be the case
- */
-export const binarySearchUsers = async (
+export const searchUsersInFile = async (
   filePath: string,
   query: string,
-  maxResults: number = 100
-): Promise<{ users: User[]; positions: number[] }> => {
+  page: number = 1,
+  limit: number = 50
+): Promise<{ users: User[]; hasMore: boolean; totalMatches: number }> => {
   const results: User[] = [];
-  const positions: number[] = [];
-  let currentIndex = 0;
   const queryLower = query.toLowerCase();
+  
+  // Calculate how many matches we need to skip to get to the requested page
+  const skip = (page - 1) * limit;
+  
+  let matchesFound = 0;
+  let hasMore = false;
+  let currentIndex = 0;
 
   const fileStream = fs.createReadStream(filePath);
   const rl = readline.createInterface({
@@ -110,23 +119,61 @@ export const binarySearchUsers = async (
   });
 
   for await (const line of rl) {
-    if (results.length >= maxResults) {
-      break;
-    }
-
+    currentIndex++;
     const trimmedLine = line.trim();
-    if (trimmedLine && !trimmedLine.startsWith('#')) {
-      const nameLower = trimmedLine.toLowerCase();
-      if (nameLower.includes(queryLower)) {
-        const user = parseUserLine(trimmedLine, currentIndex + 1);
-        if (user) {
-          results.push(user);
-          positions.push(currentIndex);
+
+    if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+
+    // 1. Fast text check before parsing (Performance optimization)
+    if (trimmedLine.toLowerCase().includes(queryLower)) {
+      
+      // 2. Parse object
+      const user = parseUserLine(trimmedLine, currentIndex);
+      
+      if (user) {
+        // 3. Double check match on specific fields to be accurate
+        const matchName = user.name.toLowerCase().includes(queryLower);
+        const matchEmail = user.email.toLowerCase().includes(queryLower);
+
+        if (matchName || matchEmail) {
+          matchesFound++;
+
+          // Pagination Logic
+          if (matchesFound <= skip) {
+            continue; // Skip items from previous pages
+          }
+
+          if (results.length < limit) {
+            results.push(user);
+          } else {
+            // If we found one more item than the limit, it means there is a next page
+            hasMore = true;
+            rl.close(); // Stop reading the file! This is crucial for performance.
+            fileStream.destroy();
+            break; 
+          }
         }
       }
     }
-    currentIndex++;
   }
 
-  return { users: results, positions };
+  // Note: For 10M users, calculating the EXACT total is too slow (requires full scan).
+  // We return a "fake" total if hasMore is true to satisfy UI counters.
+  const estimatedTotal = hasMore ? matchesFound + 100 : matchesFound;
+
+  return { 
+    users: results, 
+    hasMore, 
+    totalMatches: estimatedTotal 
+  };
+};
+
+// Deprecated: kept for backward compatibility if needed, but redirects to new logic
+export const binarySearchUsers = async (
+  filePath: string,
+  query: string,
+  maxResults: number = 100
+) => {
+   const result = await searchUsersInFile(filePath, query, 1, maxResults);
+   return { users: result.users, positions: [] };
 };

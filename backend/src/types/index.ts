@@ -28,8 +28,10 @@ export interface PaginatedUsersResponse {
 
 export interface SearchResponse {
   users: User[];
-  positions: number[];
+  positions?: number[];
   total: number;
+  hasMore: boolean; 
+  page: number;
 }
 
 export interface FullStats {
