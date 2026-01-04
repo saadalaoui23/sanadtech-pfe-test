@@ -22,7 +22,7 @@ const Header: React.FC = () => {
           </div>
           <div>
             <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2">
-              User Directory
+              SanadTech PFE User Project
             </h1>
             <p className="text-indigo-100 text-lg sm:text-xl">
               Browse through millions of users efficiently

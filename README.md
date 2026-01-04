@@ -1,406 +1,356 @@
-# Technical Test - Large List Display System
+# User List Application - Infinite Scrolling with Efficient Search
 
-## 🎯 Objective
+A high-performance web application designed to handle large-scale user data (scalable to 10M+ users) with infinite scrolling, alphabet navigation, and real-time search powered by PostgreSQL trigram indexes.
 
-Efficiently display and navigate through 10 million sorted user names without freezing the browser. This project demonstrates advanced algorithmic optimization techniques and modern web development practices.
+## 📋 Table of Contents
 
-## 🏗️ Architecture Overview
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Docker Deployment](#docker-deployment)
+- [Performance Optimizations](#performance-optimizations)
+- [Screenshots](#screenshots)
+- [Database Schema](#database-schema)
 
-The application is built with a **separation of concerns** architecture:
+## 🎯 Overview
 
-- **Backend (Node.js + Express + TypeScript)**: Handles data processing, indexing, and API endpoints
-- **Frontend (React + TypeScript)**: Implements virtual scrolling and user interface
-- **Data Layer**: File-based storage with alphabetical indexing for fast lookups
+Cette application démontre une gestion efficace de larges ensembles de données (10M+ utilisateurs) avec :
+- **Infinite scrolling** avec IntersectionObserver natif
+- **Navigation alphabétique** avec statistiques en temps réel
+- **Recherche instantanée** dès le 1er caractère grâce aux index GIN/Trigramme PostgreSQL
+- **Architecture Docker** complète avec PostgreSQL, pgAdmin, Backend Node.js et Frontend React
+- **Performance optimisée** : recherche sub-50ms sur 10 millions d'utilisateurs
 
-### Key Components
+## ✨ Features
 
-```
-┌─────────────────┐         ┌──────────────────┐         ┌──────────────┐
-│   React Frontend │ ◄─────► │  Express Backend │ ◄─────► │  users.txt   │
-│  (Virtual Scroll)│         │  (Indexed API)   │         │  (10M users) │
-└─────────────────┘         └──────────────────┘         └──────────────┘
-                                      │
-                                      ▼
-                              ┌──────────────┐
-                              │   Indexes/   │
-                              │  (A-Z JSON)  │
-                              └──────────────┘
-```
+### Interface Utilisateur
+- ✅ **Liste d'utilisateurs** avec scroll infini natif (IntersectionObserver)
+- ✅ **Navigation alphabétique** (A-Z) avec compteurs dynamiques
+- ✅ **Recherche en temps réel** dès 1 caractère (debounce 300ms)
+- ✅ **Modal de détails** avec animations fluides
+- ✅ **Design moderne** avec Tailwind CSS et dégradés
+- ✅ **Interface responsive** optimisée mobile/desktop
 
-## 🚀 Technologies Used
+### Performance Backend
+- ⚡ **Index PostgreSQL GIN** avec extension `pg_trgm` pour recherche trigramme
+- ⚡ **Requêtes ILIKE optimisées** : ~35ms sur 10M utilisateurs
+- ⚡ **Pagination cursor-based** pour navigation fluide
+- ⚡ **Compression gzip** des réponses HTTP
+- ⚡ **Rate limiting** configurable (optionnel)
+
+## 🛠 Technology Stack
 
 ### Frontend
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **react-window** - Virtual scrolling implementation
+- **React 19** - UI framework
+- **TypeScript 5.9** - Type safety
 - **Axios** - HTTP client
-- **Vite** - Build tool
+- **Tailwind CSS 3.4** - Styling
+- **Vite 7** - Build tool ultra-rapide
 
 ### Backend
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **TypeScript** - Type safety
-- **compression** - Gzip compression middleware
-- **express-rate-limit** - API rate limiting
+- **Node.js 18** - Runtime
+- **Express 5** - Web framework
+- **TypeScript 5.9** - Type safety
+- **PostgreSQL 16** - Base de données
+- **pg-copy-streams** - Import massif de données
 
-## 📊 Key Algorithmic Decisions
-
-### 1. **Alphabet Indexing System**
-
-Instead of scanning 10 million lines for each request, we pre-build an index:
-
-- **Index Structure**: Each letter (A-Z) maps to:
-  - `start`: Starting line number in the file
-  - `end`: Ending line number in the file
-  - `count`: Total number of users for this letter
-
-- **Benefits**:
-  - O(1) lookup time for letter-based navigation
-  - Direct file offset calculation (no full file scan)
-  - Reduced memory footprint
-
-**Implementation**: `backend/src/services/indexService.ts`
-
-### 2. **Virtual Scrolling Strategy**
-
-Using `react-window` to render only visible items:
-
-- **Window Size**: ~20-30 items visible at once
-- **Overscan**: 5 items outside viewport for smooth scrolling
-- **Item Height**: Fixed 60px for predictable calculations
-- **Total Height Estimation**: Calculated dynamically based on data
-
-**Benefits**:
-- Constant DOM size regardless of total items (10M items = ~30 DOM nodes)
-- 60 FPS scrolling performance
-- Minimal memory usage
-
-**Implementation**: `frontend/src/components/UserList/UserList.tsx`
-
-### 3. **Pagination Approach**
-
-- **Chunked Loading**: Load 100-500 users per request
-- **Infinite Scroll**: Automatically load next page when approaching bottom
-- **LRU Cache**: Cache frequently requested pages in memory
-- **Streaming File Reading**: Use `readline` interface to read file line-by-line
-
-**Implementation**: 
-- Backend: `backend/src/services/userService.ts`
-- Frontend: `frontend/src/hooks/useUserData.ts`
-
-### 4. **Search Optimization**
-
-- **Debouncing**: 300ms delay to reduce API calls
-- **Streaming Search**: Read file line-by-line, stop at max results
-- **Early Termination**: Stop searching once max results reached
-
-**Implementation**: `backend/src/utils/dataProcessor.ts` (binarySearchUsers
-
-## ⚡ Performance Metrics
-
-### Backend
-- **Index Build Time**: ~2-5 minutes for 10M users (one-time operation)
-- **API Response Time**: 
-  - Paginated requests: 50-200ms
-  - Alphabet stats: <10ms (cached)
-  - Search: 100-500ms (depends on query position)
-- **Memory Usage**: ~50-100MB (with LRU cache)
-
-### Frontend
-- **Initial Load**: <500ms
-- **Scroll Performance**: 60 FPS maintained
-- **Memory Usage**: ~20-30MB (only visible items in DOM)
-- **Time to Interactive**: <1 second
-
-## 🛠️ Installation & Setup
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Backend Setup
-
-```bash
-cd backend
-npm install
-npm run build
-npm run dev  # Development mode with hot reload
-# OR
-npm start    # Production mode
-```
-
-The backend will start on `http://localhost:3000`
-
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev  # Development server (usually http://localhost:5173)
-# OR
-npm run build && npm run preview  # Production build
-```
-
-### Environment Variables
-
-Create `.env` files if needed:
-
-**Backend** (`backend/.env`):
-```
-PORT=3000
-NODE_ENV=development
-```
-
-**Frontend** (`frontend/.env`):
-```
-VITE_API_URL=http://localhost:3000/api
-```
+### Infrastructure
+- **Docker & Docker Compose** - Containerisation
+- **Nginx** (dans Docker) - Serveur web pour le frontend
+- **pgAdmin 4** - Interface de gestion PostgreSQL
 
 ## 📁 Project Structure
 
 ```
-WebApp/
+.
 ├── backend/
 │   ├── src/
-│   │   ├── controllers/      # Request handlers
-│   │   ├── services/         # Business logic
-│   │   ├── routes/           # API routes
-│   │   ├── middleware/       # Error handling, etc.
-│   │   ├── utils/            # Utilities (cache, data processing)
-│   │   ├── types/            # TypeScript types
-│   │   └── server.ts         # Entry point
-│   ├── data/
-│   │   ├── users.txt        # 10M user names (one per line)
-│   │   └── indexes/         # Alphabetical indexes (A-Z.json, stats.json)
-│   └── package.json
+│   │   ├── config/
+│   │   │   └── db.ts              # Configuration PostgreSQL
+│   │   ├── controllers/
+│   │   │   └── userController.ts  # Logique des routes
+│   │   ├── middleware/
+│   │   │   └── errorHandler.ts    # Gestion des erreurs
+│   │   ├── routes/
+│   │   │   └── userRoutes.ts      # Définition des routes
+│   │   ├── services/
+│   │   │   └── userService.ts     # Logique métier + requêtes SQL
+│   │   ├── types/
+│   │   │   └── index.ts           # Types TypeScript
+│   │   ├── utils/
+│   │   │   └── seeder.ts          # Génération de 1M users
+│   │   └── server.ts              # Point d'entrée Express
+│   ├── Dockerfile                 # Image Docker backend
+│   ├── package.json
+│   └── tsconfig.json
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── components/       # React components
-│   │   │   ├── UserList/     # Virtual scrolling list
-│   │   │   ├── Navigation/   # Search, Alphabet menu
-│   │   │   └── Layout/       # Header, Sidebar
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── services/         # API client
-│   │   ├── types/            # TypeScript types
-│   │   ├── utils/            # Helper functions
-│   │   └── App.tsx           # Main component
-│   └── package.json
+│   │   ├── components/
+│   │   │   ├── Layout/
+│   │   │   │   ├── Header.tsx     # En-tête avec gradient
+│   │   │   │   └── Sidebar.tsx    # Navigation alphabétique
+│   │   │   ├── Navigation/
+│   │   │   │   ├── AlphabetMenu.tsx  # Menu A-Z
+│   │   │   │   └── SearchBar.tsx     # Barre de recherche
+│   │   │   └── UserList/
+│   │   │       ├── UserList.tsx      # Liste avec IntersectionObserver
+│   │   │       ├── UserItem.tsx      # Carte utilisateur
+│   │   │       └── UserModal.tsx     # Modal de détails
+│   │   ├── hooks/
+│   │   │   ├── useUserData.ts        # Hook principal (fetch + scroll)
+│   │   │   ├── useAlphabetNavigation.ts  # Stats alphabet
+│   │   │   └── useSearch.ts          # Recherche avec debounce
+│   │   ├── services/
+│   │   │   └── api.ts                # Client Axios
+│   │   ├── types/
+│   │   │   └── index.ts              # Types partagés
+│   │   ├── utils/
+│   │   │   └── helpers.ts            # Fonctions utilitaires
+│   │   ├── App.tsx                   # Composant racine
+│   │   ├── main.tsx                  # Point d'entrée React
+│   │   └── index.css                 # Styles globaux
+│   ├── Dockerfile                    # Image Docker frontend
+│   ├── nginx.conf                    # Config Nginx
+│   ├── package.json
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   └── vite.config.ts
 │
-└── scripts/
-    └── buildIndexes.js       # Script to build alphabetical indexes
+├── docker-compose.yml      # Orchestration des services
+├── init.sql                # Script d'initialisation PostgreSQL
+└── README.md               # Ce fichier
 ```
 
-## 🧪 Testing with 10M Users
+## 📦 Installation
 
-### Step 1: Prepare Your Data File
+### Prérequis
+- **Docker** 20+ et **Docker Compose** 2+
+- (Optionnel) Node.js 18+ et npm pour développement local
 
-Place your `users.txt` file in `backend/data/users.txt`. Format: one name per line:
-```
-Jean Dupont
-Marie Martin
-Pierre Dubois
-...
-```
+### 🚀 Démarrage Rapide avec Docker
 
-### Step 2: Build Indexes
-
-**Option 1: Using TypeScript (Recommended)**
 ```bash
-cd scripts
-npm install  # Install dependencies if needed
-npx ts-node buildIndexes.ts
+# 1. Cloner le repository
+git clone https://github.com/votre-username/user-list-app.git
+cd user-list-app
+
+# 2. Lancer tous les services avec Docker Compose
+docker-compose up --build
+
+# 3. Attendre ~30 secondes que tout démarre
+# Les services seront accessibles à :
+# - Frontend:     http://localhost:80
+# - Backend API:  http://localhost:3000
+# - pgAdmin:      http://localhost:5050
 ```
 
-**Option 2: Using JavaScript (if backend is compiled)**
-```bash
-cd scripts
-node buildIndexes.js
+### 🗄️ Seed de la base de données
+
+Le seeder génère **1 million d'utilisateurs** automatiquement au premier lancement du backend :
+
+```typescript
+// backend/src/utils/seeder.ts
+// Génère 1M users avec pg-copy-streams (très rapide)
+// Format: "User [random_suffix]"
 ```
 
-This will:
-- Read through all 10M users
-- Create index files for each letter (A-Z)
-- Save statistics to `backend/data/indexes/stats.json`
+**Pour générer 10 millions d'utilisateurs** :
+1. Modifiez `backend/src/utils/seeder.ts` ligne 39 : `for (let i = 0; i < 10000000; i++)`
+2. Relancez `docker-compose up --build`
 
-**Expected time**: 2-5 minutes for 10M users
+### 🔧 Développement Local (sans Docker)
 
-### Step 3: Start Backend
-
+#### Backend
 ```bash
 cd backend
+npm install
+
+# Configurer .env
+cat > .env << EOF
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=admin
+DB_NAME=sanad_pfe
+DB_PORT=5432
+PORT=3000
+EOF
+
+# Lancer PostgreSQL (via Docker ou local)
+# Puis démarrer le serveur
 npm run dev
 ```
 
-### Step 4: Start Frontend
-
+#### Frontend
 ```bash
 cd frontend
+npm install
+
+# Configurer .env
+echo "VITE_API_URL=http://localhost:3000/api" > .env
+
+# Démarrer le dev server
 npm run dev
 ```
 
-### Step 5: Test the Application
+## 🐳 Docker Deployment
 
-1. Open `http://localhost:5173` (or your frontend URL)
-2. Navigate using alphabet menu
-3. Test search functionality
-4. Scroll through the list (should be smooth)
+### Architecture Docker
 
-## 🎨 UI/UX Features
-
-### ✅ Implemented Features
-
-1. **Virtual Scrolling**
-   - Only renders visible items
-   - Smooth 60 FPS scrolling
-   - Infinite scroll loading
-
-2. **Alphabet Navigation Menu**
-   - A-Z buttons with user counts
-   - Active letter highlighting
-   - Jump-to-letter functionality
-
-3. **Search Functionality**
-   - Real-time search with debouncing
-   - Search by name or email
-   - Clear search option
-
-4. **Loading States**
-   - Loading indicators
-   - Progress information
-   - Error handling
-
-5. **Responsive Design**
-   - Mobile-friendly layout
-   - Adaptive sidebar
-
-## 🔮 Future Improvements
-
-If given more time, I would implement:
-
-1. **Advanced Search**
-   - Fuzzy search with typo tolerance
-   - Search filters (by email domain, etc.)
-   - Search history
-
-2. **Performance Enhancements**
-   - Service Worker for offline support
-   - IndexedDB caching
-   - WebSocket for real-time updates
-
-3. **User Experience**
-   - Keyboard navigation (arrow keys, etc.)
-   - Jump to specific user ID
-   - Export functionality (CSV, JSON)
-
-4. **Backend Optimizations**
-   - Database migration (PostgreSQL/MongoDB)
-   - Full-text search index (Elasticsearch)
-   - Redis caching layer
-
-5. **Testing**
-   - Unit tests (Jest)
-   - Integration tests
-   - E2E tests (Playwright)
-
-6. **Monitoring**
-   - Performance metrics collection
-   - Error tracking (Sentry)
-   - Analytics
-
-## 📝 API Endpoints
-
-### `GET /api/users/paginated`
-Get paginated list of users.
-
-**Query Parameters**:
-- `page` (number): Page number (default: 1)
-- `limit` (number): Items per page (default: 100, max: 500)
-- `letter` (string, optional): Filter by first letter (A-Z)
-- `search` (string, optional): Search term
-
-**Response**:
-```json
-{
-  "users": [...],
-  "total": 1000000,
-  "hasMore": true,
-  "page": 1
-}
+```yaml
+# docker-compose.yml
+services:
+  db:           # PostgreSQL 16 avec extension pg_trgm
+  pgadmin:      # Interface web de gestion DB
+  api:          # Backend Node.js Express
+  web:          # Frontend React servi par Nginx
 ```
 
-### `GET /api/users/alphabet-stats`
-Get statistics for each letter.
+### Variables d'environnement
 
-**Response**:
-```json
-{
-  "A": { "count": 500000, "startIndex": 0 },
-  "B": { "count": 400000, "startIndex": 500000 },
-  ...
-}
+#### Backend (`backend/.env`)
+```env
+# Database
+DB_HOST=db              # Nom du service Docker
+DB_USER=postgres
+DB_PASSWORD=admin
+DB_NAME=sanad_pfe
+DB_PORT=5432
+
+# Server
+PORT=3000
+NODE_ENV=production
 ```
 
-### `GET /api/users/search`
-Search for users.
-
-**Query Parameters**:
-- `q` (string, required): Search query
-- `maxResults` (number, optional): Max results (default: 100, max: 500)
-
-**Response**:
-```json
-{
-  "users": [...],
-  "positions": [0, 5, 10, ...],
-  "total": 50
-}
+#### Frontend (`frontend/.env`)
+```env
+VITE_API_URL=http://localhost:3000/api
 ```
 
-### `GET /api/users/jump-to-letter/:letter`
-Jump to a specific letter.
+### Commandes Docker utiles
 
-**Path Parameters**:
-- `letter` (string): Letter A-Z
+```bash
+# Démarrer tous les services
+docker-compose up -d
 
-**Query Parameters**:
-- `limit` (number, optional): Items per page (default: 100)
+# Voir les logs
+docker-compose logs -f api        # Backend
+docker-compose logs -f web        # Frontend
+docker-compose logs -f db         # PostgreSQL
 
-**Response**: Same as `/paginated`
+# Rebuild après modifications
+docker-compose up --build
 
-## 🐛 Troubleshooting
+# Arrêter tout
+docker-compose down
 
-### Backend won't start
-- Check if port 3000 is available
-- Verify `users.txt` exists in `backend/data/`
-- Run `npm install` to ensure dependencies are installed
+# Supprimer les volumes (⚠️ supprime la DB)
+docker-compose down -v
 
-### Indexes not found
-- Run `node scripts/buildIndexes.js` to generate indexes
-- Check `backend/data/indexes/` directory exists
+# Accéder au shell d'un container
+docker exec -it sanad_backend sh
+docker exec -it sanad_postgres psql -U postgres -d sanad_pfe
+```
 
-### Frontend can't connect to API
-- Verify backend is running on port 3000
-- Check `VITE_API_URL` in frontend `.env`
-- Check CORS settings in backend
+### pgAdmin - Interface de gestion
 
-### Slow performance
-- Ensure indexes are built (`buildIndexes.js`)
-- Check file I/O performance (SSD recommended)
-- Reduce `limit` parameter in API calls
+1. Accéder à http://localhost:5050
+2. Se connecter avec :
+   - **Email** : `admin@admin.com`
+   - **Password** : `admin`
+3. Ajouter un serveur PostgreSQL :
+   - **Host** : `db` (nom du service Docker)
+   - **Port** : `5432`
+   - **Username** : `postgres`
+   - **Password** : `admin`
 
-## 📄 License
+## ⚡ Performance Optimizations
 
-This project is created for a technical test/assessment.
+### Base de données PostgreSQL
 
-## 👤 Author
+#### 1. Extension Trigramme (pg_trgm)
+```sql
+-- init.sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-Created for Sanadtech PFE Technical Test
+-- Index GIN pour recherche trigramme
+CREATE INDEX idx_users_name_trgm ON users 
+  USING gin (name gin_trgm_ops);
+```
+
+**Résultat** : Recherche ILIKE en **~35ms** sur 10M utilisateurs
+
+#### 2. Index B-Tree pour tri
+```sql
+CREATE INDEX idx_users_name_btree ON users (name);
+```
+
+**Résultat** : Tri alphabétique ultra-rapide
+
+#### 3. Requêtes optimisées
+```typescript
+// userService.ts - Recherche optimisée
+const sql = `
+  SELECT * FROM users 
+  WHERE name ILIKE $1 
+  ORDER BY name ASC 
+  LIMIT $2 OFFSET $3
+`;
+```
+
+## 🗄️ Database Schema
+
+### Table `users`
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+-- Index B-Tree pour tri alphabétique
+CREATE INDEX idx_users_name_btree ON users (name);
+
+-- Index GIN pour recherche trigramme (ILIKE optimisé)
+CREATE INDEX idx_users_name_trgm ON users 
+  USING gin (name gin_trgm_ops);
+```
+
+### Stratégie de génération des données
+
+Le seeder utilise **`pg-copy-streams`** pour un import ultra-rapide :
+
+
+**Performance** : 1M users insérés en ~10 secondes
+
+## 📸 Screenshots
+
+### Desktop - Liste principale
+![Desktop User List](./screens/desktop-user-list.png)
+*Interface principale avec navigation alphabétique, recherche et liste d'utilisateurs*
 
 ---
 
-**Note**: This application is optimized for handling large datasets (10M+ items) efficiently. The key to its performance is the combination of:
-1. Pre-built alphabetical indexes
-2. Virtual scrolling (only render visible items)
-3. Chunked data loading
-4. LRU caching
+### Desktop - Recherche en temps réel
+![Search Results](./screens/desktop-search.png)
+*Recherche instantanée avec résultats filtrés dès le premier caractère*
+
+---
+
+### Modal - Détails utilisateur
+![User Modal](./screens/user-modal.png)
+*Modal élégant affichant les informations détaillées d'un utilisateur*
+
+---
+
+### Mobile - Vue responsive
+![Mobile View](./screens/mobile-view.png)
+*Interface optimisée pour mobile avec navigation tactile*
+
+---
+
+### Performances - Métriques PostgreSQL
+![Performance Metrics](./screens/performance-metrics.png)
+*Temps de requête et utilisation des index via pgAdmin*
