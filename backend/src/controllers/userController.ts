@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/userService';
-import * as indexService from '../services/indexService';
 
 /**
  * GET /api/users/paginated
@@ -39,7 +38,8 @@ export const getAlphabetStats = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const stats = await indexService.getAllAlphabetStats();
+    // On appelle désormais userService, car indexService n'existe plus
+    const stats = await userService.getAlphabetStats();
     res.json(stats);
   } catch (error) {
     next(error);

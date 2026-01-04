@@ -1,11 +1,11 @@
 /**
  * Debounce function to limit function calls
+ * Vital pour la barre de recherche (évite de spammer le backend)
  */
 export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
-  // Correction ici : On utilise le type de retour natif de setTimeout
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return function executedFunction(...args: Parameters<T>) {
@@ -22,10 +22,11 @@ export const debounce = <T extends (...args: any[]) => any>(
 };
 
 /**
- * Formats a number with thousand separators
+ * Formats a number with thousand separators (ex: 1,000,000)
  */
 export const formatNumber = (num: number): string => {
-  return num.toLocaleString('en-US');
+  if (num === undefined || num === null) return '0';
+  return num.toLocaleString('en-US'); // Ou 'fr-FR' si vous préférez les espaces
 };
 
 /**

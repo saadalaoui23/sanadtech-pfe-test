@@ -1,114 +1,141 @@
+import { pool } from '../config/db';
 import { User, GetUsersParams, PaginatedUsersResponse, SearchResponse } from '../types';
-import * as indexService from './indexService';
-import { readUsersFromFile, searchUsersInFile } from '../utils/dataProcessor'; // ✅ Import de la fonction Stream
-import * as path from 'path';
-import { getCachedUsers, setCachedUsers, generateCacheKey } from '../utils/cache';
 
-const USERS_FILE = path.join(__dirname, '../../data/users.txt');
-
-/**
- * Retrieves paginated users with optional filtering by letter
- */
-export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersResponse> => {
-  try {
-    const { page, limit, letter, search } = params;
-
-    // Check cache first
-    const cacheKey = generateCacheKey(page, limit, letter, search);
-    const cached = getCachedUsers(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    let startIndex = 0;
-    let endIndex = 0;
-
-    if (letter) {
-      // Use alphabetical index
-      const indexData = await indexService.getIndexForLetter(letter);
-      if (!indexData) {
-        return { users: [], hasMore: false, total: 0, page };
-      }
-      startIndex = indexData.start;
-      endIndex = indexData.end;
-    } else {
-      // Use full range
-      const stats = await indexService.getFullStats();
-      startIndex = 0;
-      endIndex = stats.total;
-    }
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-    const actualStart = startIndex + skip;
-    const actualEnd = Math.min(actualStart + limit, endIndex);
-
-    // Read users from file
-    const users = await readUsersFromFile(USERS_FILE, actualStart, actualEnd);
-
-    // Note: Le filtrage 'search' ici s'applique uniquement à la page courante (legacy behavior).
-    // Pour une vraie recherche globale, utilisez l'endpoint /search qui appelle searchUsers() ci-dessous.
-    let filteredUsers = users;
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredUsers = users.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchLower) ||
-          user.email.toLowerCase().includes(searchLower)
-      );
-    }
-
-    const hasMore = actualEnd < endIndex && filteredUsers.length > 0;
-
-    const result: PaginatedUsersResponse = {
-      users: filteredUsers,
-      hasMore,
-      total: endIndex - startIndex,
-      page,
-    };
-
-    // Cache the result
-    setCachedUsers(cacheKey, result);
-
-    return result;
-  } catch (error: any) {
-    throw new Error(`Failed to get users: ${error.message}`);
-  }
-};
-
-export const getUsersByLetter = async (letter: string, limit: number = 100): Promise<PaginatedUsersResponse> => {
-  return getUsers({ page: 1, limit, letter });
-};
-
-/**
- * Searches for users matching a query string using STREAMING (Scalable 10M+)
- */
-export const searchUsers = async (query: string, limit: number, page: number = 1): Promise<SearchResponse> => {
-  try {
-    if (!query || query.trim().length === 0) {
-      return { users: [], total: 0, hasMore: false, page };
-    }
-
-    // ✅ APPEL DE LA NOUVELLE FONCTION STREAMÉE
-    // Elle lit le fichier ligne par ligne et s'arrête dès qu'elle a rempli la page.
-    const { users, hasMore, totalMatches } = await searchUsersInFile(USERS_FILE, query, page, limit);
+// Mapper pour transformer les données brutes SQL en objet User frontend
+const mapDbRowToUser = (row: any): User => {
+    const fullName = row.name;
+    const parts = fullName.split(' ');
+    const firstName = parts[0];
+    const lastName = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    
+    // Génération d'un email fictif cohérent
+    const emailName = fullName.toLowerCase().replace(/[^a-z0-9]/g, '.');
 
     return {
-      users,
-      total: totalMatches, // Total estimé si hasMore est vrai, sinon total exact trouvé
-      hasMore,
-      page
+        id: row.id,
+        name: row.name,
+        firstName,
+        lastName,
+        email: `${emailName}@example.com`
     };
-  } catch (error: any) {
-    throw new Error(`Failed to search users: ${error.message}`);
-  }
 };
 
-export const getUserById = async (id: number): Promise<User | null> => {
-  try {
-    const users = await readUsersFromFile(USERS_FILE, 0, Math.min(id + 100, 1000));
-    return users.find((user) => user.id === id) || null;
-  } catch (error: any) {
-    throw new Error(`Failed to get user by id: ${error.message}`);
-  }
+/**
+ * Récupération paginée standard + Filtre par lettre
+ */
+export const getUsers = async (params: GetUsersParams): Promise<PaginatedUsersResponse> => {
+    const { page, limit, letter, search } = params; // Ajout de 'search' au cas où
+    const offset = (page - 1) * limit;
+
+    try {
+        let query = 'SELECT * FROM users';
+        let countQuery = 'SELECT COUNT(*) FROM users'; 
+        const queryParams: any[] = [];
+        
+        // --- CORRECTION CRITIQUE ICI (ILIKE) ---
+        if (letter) {
+            // On utilise ILIKE pour que 'x' trouve 'Xavier'
+            query += ' WHERE name ILIKE $1';
+            countQuery += ' WHERE name ILIKE $1';
+            queryParams.push(`${letter}%`); 
+        }
+        // ----------------------------------------
+
+        // Gestion de la pagination dynamique
+        const limitIndex = queryParams.length + 1;
+        const offsetIndex = queryParams.length + 2;
+        
+        query += ` ORDER BY name ASC LIMIT $${limitIndex} OFFSET $${offsetIndex}`;
+        
+        const [rowsResult, countResult] = await Promise.all([
+            pool.query(query, [...queryParams, limit, offset]),
+            pool.query(countQuery, queryParams)
+        ]);
+
+        const total = parseInt(countResult.rows[0].count, 10);
+        const users = rowsResult.rows.map(mapDbRowToUser);
+
+        return {
+            users,
+            hasMore: offset + users.length < total,
+            total,
+            page
+        };
+    } catch (error: any) {
+        throw new Error(`Erreur DB: ${error.message}`);
+    }
+};
+
+/**
+ * Recherche Full-Text (Optimisée GIN)
+ */
+export const searchUsers = async (queryText: string, limit: number, page: number = 1): Promise<SearchResponse> => {
+    if (!queryText) return { users: [], total: 0, hasMore: false, page };
+
+    const offset = (page - 1) * limit;
+
+    try {
+        const sql = `
+            SELECT * FROM users 
+            WHERE name ILIKE $1 
+            ORDER BY name ASC 
+            LIMIT $2 OFFSET $3
+        `;
+        
+        const countSql = `SELECT COUNT(*) FROM users WHERE name ILIKE $1`;
+
+        const [res, countRes] = await Promise.all([
+            pool.query(sql, [`%${queryText}%`, limit, offset]),
+            pool.query(countSql, [`%${queryText}%`])
+        ]);
+
+        const totalMatches = parseInt(countRes.rows[0].count, 10);
+        const users = res.rows.map(mapDbRowToUser);
+
+        return {
+            users,
+            total: totalMatches,
+            hasMore: offset + users.length < totalMatches,
+            page
+        };
+    } catch (error: any) {
+        throw new Error(`Erreur recherche: ${error.message}`);
+    }
+};
+
+/**
+ * Stats Alphabétiques
+ */
+export const getAlphabetStats = async () => {
+    try {
+        const sql = `
+            SELECT UPPER(LEFT(name, 1)) as letter, COUNT(*) as count 
+            FROM users 
+            WHERE name ~ '^[a-zA-Z]' 
+            GROUP BY UPPER(LEFT(name, 1)) 
+            ORDER BY letter ASC
+        `;
+        const result = await pool.query(sql);
+        
+        const stats: Record<string, any> = {};
+        let runningTotal = 0;
+
+        result.rows.forEach(row => {
+            stats[row.letter] = {
+                count: parseInt(row.count, 10),
+                start: runningTotal
+            };
+            runningTotal += parseInt(row.count, 10);
+        });
+
+        return stats;
+    } catch (error: any) {
+        throw new Error(`Erreur stats: ${error.message}`);
+    }
+};
+
+// 👇👇👇 C'EST CETTE FONCTION QUI MANQUAIT 👇👇👇
+export const getUsersByLetter = async (letter: string, limit: number = 100): Promise<PaginatedUsersResponse> => {
+    // C'est juste un alias pratique qui appelle la fonction principale
+    return getUsers({ page: 1, limit, letter });
 };

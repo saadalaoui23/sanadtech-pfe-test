@@ -5,7 +5,6 @@ export interface User {
   lastName: string;
   email: string;
   avatar?: string;
-  [key: string]: any; // Flexibilité pour d'autres champs éventuels
 }
 
 export interface PaginatedUsersResponse {
@@ -15,24 +14,19 @@ export interface PaginatedUsersResponse {
   page: number;
 }
 
-// ⚠️ CORRECTION ICI : 'startIndex' devient 'start' pour matcher le Backend
 export interface AlphabetStats {
   [letter: string]: {
     count: number;
-    start: number; // Le backend renvoie "start", pas "startIndex"
-    end?: number;  // Le backend renvoie souvent "end" aussi
+    start: number; 
   };
 }
 
 export interface SearchResponse {
   users: User[];
   total: number;
-  // --- C'EST PARFAIT POUR LE SCROLL INFINI ---
-  hasMore: boolean; 
+  hasMore: boolean;
   page: number;
-  // -------------------------------------------
-  positions?: number[];
 }
 
-// Type union utile pour les hooks
+
 export type APIResponse = PaginatedUsersResponse | SearchResponse;

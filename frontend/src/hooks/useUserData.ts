@@ -16,68 +16,43 @@ export const useUserData = (options: {
   
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  // 🔧 FIX CRITIQUE : UN SEUL useEffect qui gère TOUT
+  // 🟢 EFFECT PRINCIPAL : Gère le reset et le premier chargement
   useEffect(() => {
-    console.log('🎬 Effect principal déclenché:', { letter, searchTerm });
-    
-    // Reset immédiat et synchrone
+    // 1. Reset des états
     setUsers([]);
     setHasMore(true);
     setTotal(0);
     setPage(1);
     
-    // Annuler la requête en cours
+    // 2. Annulation de la requête précédente
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
     const controller = new AbortController();
     abortControllerRef.current = controller;
     
-    // Fonction de fetch locale (pas besoin de useCallback)
     const loadInitialData = async () => {
-      console.log('🚀 Démarrage du fetch initial');
       setLoading(true);
-      
       try {
         let response;
 
-        if (searchTerm && searchTerm.length >= 2) {
-          console.log('📡 Appel searchUsers:', searchTerm);
+        // ⚡ OPTIMISATION : On déclenche la recherche dès 1 caractère
+        // Grâce à l'index GIN du backend, c'est instantané même sur 10M users.
+        if (searchTerm && searchTerm.trim().length >= 1) {
           response = await searchUsers(searchTerm, pageSize, 1);
         } else {
-          console.log('📡 Appel fetchPaginatedUsers:', { letter, page: 1 });
+          // Sinon mode navigation par lettre ou liste complète
           response = await fetchPaginatedUsers(1, pageSize, letter || undefined);
         }
 
-        // Vérifier que la requête n'a pas été annulée
-        if (controller.signal.aborted) {
-          console.log('⚠️ Requête annulée');
-          return;
-        }
-
-        console.log('✅ Réponse reçue:', { 
-          usersCount: response.users?.length, 
-          total: response.total 
-        });
+        if (controller.signal.aborted) return;
 
         const newUsers = response.users || [];
-        const newTotal = response.total || 0;
         
-        // Mise à jour atomique de tous les états
         setUsers(newUsers);
-        setTotal(newTotal);
+        setTotal(response.total || 0);
         setPage(1);
-        setHasMore(
-          typeof response.hasMore === 'boolean' 
-            ? response.hasMore 
-            : newUsers.length === pageSize
-        );
-        
-        console.log('✅ États mis à jour:', { 
-          usersCount: newUsers.length,
-          total: newTotal 
-        });
+        setHasMore(response.hasMore); // On fait confiance au booléen du backend
 
       } catch (err: any) {
         if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
@@ -86,32 +61,21 @@ export const useUserData = (options: {
           setHasMore(false);
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
-    // Lancer le fetch
     loadInitialData();
 
-    // Cleanup : annuler la requête si le composant démonte ou les deps changent
     return () => {
-      console.log('🧹 Cleanup - Annulation de la requête en cours');
       controller.abort();
     };
-  }, [letter, searchTerm, pageSize]); // ✅ Dépendances stables
+  }, [letter, searchTerm, pageSize]);
 
-  // 🔧 Fonction loadMore séparée et stable
+  // 🟢 LOAD MORE : Gère le scroll infini
   const loadMore = useCallback(() => {
-    // Empêcher les appels multiples
-    if (loading || !hasMore) {
-      console.log('⏸️ loadMore ignoré:', { loading, hasMore });
-      return;
-    }
+    if (loading || !hasMore) return;
 
-    console.log('📜 loadMore déclenché - page actuelle:', page);
-    
     const nextPage = page + 1;
     setLoading(true);
 
@@ -119,26 +83,19 @@ export const useUserData = (options: {
       try {
         let response;
 
-        if (searchTerm && searchTerm.length >= 2) {
+        // On garde la même logique de seuil (>= 1)
+        if (searchTerm && searchTerm.trim().length >= 1) {
           response = await searchUsers(searchTerm, pageSize, nextPage);
         } else {
           response = await fetchPaginatedUsers(nextPage, pageSize, letter || undefined);
         }
 
-        console.log('✅ Page supplémentaire reçue:', response.users?.length);
-
-        const newUsers = response.users || [];
-        
-        setUsers(prev => [...prev, ...newUsers]);
+        setUsers(prev => [...prev, ...response.users]);
         setPage(nextPage);
-        setHasMore(
-          typeof response.hasMore === 'boolean'
-            ? response.hasMore
-            : newUsers.length === pageSize
-        );
+        setHasMore(response.hasMore);
 
       } catch (err: any) {
-        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+        if (err.name !== 'CanceledError') {
           console.error('❌ Erreur loadMore:', err);
           setHasMore(false);
         }
@@ -150,22 +107,5 @@ export const useUserData = (options: {
     loadMoreData();
   }, [loading, hasMore, page, letter, searchTerm, pageSize]);
 
-  // 🔧 DEBUG : Log à chaque changement
-  useEffect(() => {
-    console.log('📊 État FINAL:', { 
-      usersCount: users.length, 
-      loading, 
-      hasMore, 
-      total,
-      firstUser: users[0]?.name 
-    });
-  }, [users, loading, hasMore, total]);
-
-  return { 
-    users, 
-    loading, 
-    hasMore, 
-    total, 
-    loadMore 
-  };
+  return { users, loading, hasMore, total, loadMore };
 };
