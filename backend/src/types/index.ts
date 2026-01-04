@@ -6,19 +6,6 @@ export interface User {
   email: string;
 }
 
-export interface AlphabetIndex {
-  start: number;
-  end: number;
-  count: number;
-}
-
-export interface AlphabetStats {
-  [letter: string]: {
-    count: number;
-    startIndex: number;
-  };
-}
-
 export interface PaginatedUsersResponse {
   users: User[];
   total: number;
@@ -28,14 +15,18 @@ export interface PaginatedUsersResponse {
 
 export interface SearchResponse {
   users: User[];
-  positions?: number[];
   total: number;
   hasMore: boolean; 
   page: number;
+  // 'positions' supprimé car inutile en SQL
 }
 
-export interface FullStats {
-  total: number;
+// Format attendu par le Frontend pour le menu alphabétique
+export interface AlphabetStats {
+  [letter: string]: {
+    count: number;
+    start: number; // On garde 'start' pour la compatibilité front
+  };
 }
 
 export interface GetUsersParams {

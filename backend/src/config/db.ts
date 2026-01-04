@@ -1,22 +1,25 @@
 import { Pool } from 'pg';
 
-// Configuration de la connexion (Pool = Gestionnaire de connexions multiples)
 export const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'sanad_pfe',
-  password: 'sasmasmasrh10', // Votre mot de passe
-  port: 5432,
-  max: 20, // Nombre max de connexions simultanées
+  // On utilise process.env.DB_USER s'il existe (Docker), sinon 'postgres' (Local)
+  user: process.env.DB_USER || 'postgres',
+  
+  // C'EST ICI LE PLUS IMPORTANT :
+  // Docker enverra 'db' (le nom du service), ton PC utilisera 'localhost'
+  host: process.env.DB_HOST || 'localhost', 
+  
+  database: process.env.DB_NAME || 'sanad_pfe',
+  password: process.env.DB_PASSWORD || 'admin',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  max: 20,
   idleTimeoutMillis: 30000,
 });
 
-// Test de connexion au démarrage
 pool.on('connect', () => {
-  console.log('Base de données connectée avec succès');
+  console.log('✅ Base de données connectée');
 });
 
 pool.on('error', (err) => {
-  console.error('Erreur inattendue sur le client idle', err);
+  console.error('❌ Erreur critique DB:', err);
   process.exit(-1);
 });

@@ -1,27 +1,60 @@
 version: '3.8'
 
 services:
-  backend:
-    build:
+  # --- 1. Base de données PostgreSQL ---
+  db:
+    image: postgres:16-alpine
+    container_name: sanad_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin      # Mot de passe de la DB
+      POSTGRES_DB: sanad_pfe
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+
+  # --- 2. Interface pgAdmin (Le GUI pour la DB) ---
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: sanad_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com  # Email pour se connecter à l'interface
+      PGADMIN_DEFAULT_PASSWORD: admin         # Mot de passe pour l'interface
+    ports:
+      - "5050:80"  # Accessible via http://localhost:5050
+    depends_on:
+      - db
+    restart: always
+
+  # --- 3. Backend Node.js ---
+  api:
+    build: 
       context: ./backend
-      dockerfile: Dockerfile
+    container_name: sanad_backend
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-    volumes:
-      - ./backend/data:/app/data
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:3000/api
+      - DB_HOST=db             # Important: on utilise le nom du service 'db'
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+      - DB_NAME=sanad_pfe
+      - DB_PORT=5432
     depends_on:
-      - backend
-    restart: unless-stopped
+      - db
+    restart: on-failure
+
+  # --- 4. Frontend React (Nginx) ---
+  web:
+    build: 
+      context: ./frontend
+    container_name: sanad_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
