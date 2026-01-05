@@ -5,25 +5,19 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import { pool } from './config/db';
+import { seedDatabase } from './utils/seeder';
 
 dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
-// Rate limiting to protect API
-//const limiter = rateLimit({
-  //windowMs: 1 * 60 * 1000, // 1 minute
-  //max: 1000, // Limit each IP to 100 requests per windowMs
-  //message: 'Too many requests from this IP, please try again later.',
-//});
-
 // Middleware
-app.use(compression()); // Enable gzip compression
+app.use(compression()); 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-//app.use('/api/', limiter); // Apply rate limiting to API routes
 
 // Routes
 app.use('/api/users', userRoutes);
@@ -36,10 +30,30 @@ app.get('/health', (req, res) => {
 // Error handling
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📊 API available at http://localhost:${PORT}/api/users`);
-});
+// 👇 MODIFICATION DU DÉMARRAGE (ASYNC)
+const startServer = async () => {
+  try {
+    // 1. Tester la connexion à la base de données
+    await pool.query('SELECT 1');
+    console.log('✅ Base de données connectée (Vérification Server)');
+
+    // 2. Lancer le script de remplissage (Seeder)
+    // C'est ici que les 1 million d'utilisateurs vont être créés si la base est vide
+    await seedDatabase();
+
+    // 3. Démarrer le serveur Express uniquement si tout est OK
+    app.listen(PORT, () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`📊 API available at http://localhost:${PORT}/api/users`);
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur critique au démarrage :', error);
+    process.exit(1); // Arrête le conteneur pour qu'il redémarre proprement
+  }
+};
+
+// Lancement de la fonction
+startServer();
 
 export default app;
