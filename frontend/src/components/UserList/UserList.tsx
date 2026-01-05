@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { User } from '../../types'; 
 import UserItem from './UserItem';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 
 interface UserListProps {
   users: User[];
@@ -12,13 +13,32 @@ interface UserListProps {
 }
 
 /**
- * UserList avec scroll natif et IntersectionObserver
- * Plus simple et plus fiable que react-window pour ce cas d'usage
+ * UserList avec scroll natif utilisant le hook useInfiniteScroll
+ * Code nettoyé et factorisé
  */
 const UserList: React.FC<UserListProps> = ({ users, onLoadMore, hasMore, loading, total, onUserClick }) => {
-  const observerTarget = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false);
   
+  // Utilisation du hook personnalisé au lieu de réimplémenter la logique
+  const observerTarget = useInfiniteScroll({
+    hasMore,
+    loading,
+    onLoadMore: () => {
+        // Logique anti-rebond simple conservée du composant original si nécessaire
+        if (!isLoadingRef.current) {
+            console.log('📜 Intersection détectée - Chargement de plus de users');
+            isLoadingRef.current = true;
+            onLoadMore();
+            
+            // Reset après 1 seconde
+            setTimeout(() => {
+                isLoadingRef.current = false;
+            }, 1000);
+        }
+    },
+    threshold: 200 // On garde la marge de 200px
+  });
+
   console.log('🎨 UserList render:', { 
     usersCount: users.length, 
     hasMore, 
@@ -26,41 +46,6 @@ const UserList: React.FC<UserListProps> = ({ users, onLoadMore, hasMore, loading
     total,
     firstUser: users[0]?.name 
   });
-
-  // 🔧 IntersectionObserver pour détecter le scroll vers le bas
-  useEffect(() => {
-    const target = observerTarget.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        
-        // Si l'élément est visible ET qu'on peut charger plus
-        if (entry.isIntersecting && hasMore && !loading && !isLoadingRef.current) {
-          console.log('📜 Intersection détectée - Chargement de plus de users');
-          isLoadingRef.current = true;
-          onLoadMore();
-          
-          // Reset après 1 seconde pour éviter les doubles appels
-          setTimeout(() => {
-            isLoadingRef.current = false;
-          }, 1000);
-        }
-      },
-      {
-        root: null,
-        rootMargin: '200px', // Charge 200px avant d'atteindre le bas
-        threshold: 0.1,
-      }
-    );
-
-    observer.observe(target);
-
-    return () => {
-      if (target) observer.unobserve(target);
-    };
-  }, [hasMore, loading, onLoadMore]);
 
   // Reset du flag de chargement quand loading change
   useEffect(() => {
