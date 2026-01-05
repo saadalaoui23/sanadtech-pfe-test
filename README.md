@@ -328,7 +328,7 @@ Le seeder utilise **`pg-copy-streams`** pour un import ultra-rapide :
 ## 📸 Screenshots
 
 ### Desktop - Recherche en temps réel
-![Search Results](./screens/rer.png)
+![Search Results](./screens/ar.png)
 *Recherche instantanée avec résultats filtrés dès le premier caractère*
 
 ---
@@ -340,7 +340,7 @@ Le seeder utilise **`pg-copy-streams`** pour un import ultra-rapide :
 ---
 
 ### Mobile - Tri rapide
-![Mobile View](./screens/ar.png)
+![Mobile View](./screens/rer.png)
 *tri par la première lettre du nom de l'utilisateur*
 
 ---
