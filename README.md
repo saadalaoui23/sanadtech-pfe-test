@@ -327,30 +327,24 @@ Le seeder utilise **`pg-copy-streams`** pour un import ultra-rapide :
 
 ## 📸 Screenshots
 
-### Desktop - Liste principale
-![Desktop User List](./screens/desktop-user-list.png)
-*Interface principale avec navigation alphabétique, recherche et liste d'utilisateurs*
-
----
-
 ### Desktop - Recherche en temps réel
-![Search Results](./screens/desktop-search.png)
+![Search Results](./screens/rer.png)
 *Recherche instantanée avec résultats filtrés dès le premier caractère*
 
 ---
 
 ### Modal - Détails utilisateur
-![User Modal](./screens/user-modal.png)
+![User Modal](./screens/du.png)
 *Modal élégant affichant les informations détaillées d'un utilisateur*
 
 ---
 
-### Mobile - Vue responsive
-![Mobile View](./screens/mobile-view.png)
-*Interface optimisée pour mobile avec navigation tactile*
+### Mobile - Tri rapide
+![Mobile View](./screens/ar.png)
+*tri par la première lettre du nom de l'utilisateur*
 
 ---
 
-### Performances - Métriques PostgreSQL
-![Performance Metrics](./screens/performance-metrics.png)
-*Temps de requête et utilisation des index via pgAdmin*
+### Performances - Test global
+![Performance Metrics](./screens/omu.png)
+*Test avec 1 000 000 utilisateurs*
